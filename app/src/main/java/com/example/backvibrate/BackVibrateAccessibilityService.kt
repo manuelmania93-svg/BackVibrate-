@@ -58,7 +58,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BackVibrate ist aktiv")
             .setContentText("Haptik fuer Zurueck-Taste laeuft im Hintergrund")
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
@@ -147,39 +147,39 @@ class BackVibrateAccessibilityService : AccessibilityService() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
-        ).apply {
+        ).apply {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             gravity = Gravity.BOTTOM or (if (isLeftPosition) Gravity.START else Gravity.END)
-        }
-    }
+        
+    
 
-    private fun removeOverlay() {
-        overlayView?.let {
-            try {
+    private fun removeOverlay() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        overlayView?.let {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            try {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 windowManager?.removeView(it)
-            } catch (_: Exception) {}
+             catch (_: Exception) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             overlayView = null
-        }
-    }
+        
+    
 
-    private fun triggerVibration() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun triggerVibration() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             val vm = getSystemService(VibratorManager::class.java)
             vm?.defaultVibrator?.vibrate(
                 VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE)
             )
-        } else {
-            @Suppress("DEPRECATION")
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            Suppress("DEPRECATION")
             val v = getSystemService(Vibrator::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 v?.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
+             else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                Suppress("DEPRECATION")
                 v?.vibrate(45)
-            }
-        }
-    }
+            
+        
+    
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
+    override fun onConfigurationChanged(newConfig: Configuration) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         super.onConfigurationChanged(newConfig)
         updateConfig()
     
