@@ -1,3 +1,56 @@
+#!/bin/bash
+set -e
+
+# 1. Manifest mit Foreground-Service-Rechten
+cat << 'EOF' > app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".BackVibrateAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:foregroundServiceType="specialUse"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Haptic feedback overlay" />
+        </service>
+
+    </application>
+</manifest>
+EOF
+
+# 2. Service mit Notification & Foreground-Lock
+cat << 'EOF' > app/src/main/java/com/example/backvibrate/BackVibrateAccessibilityService.kt
 package com.example.backvibrate
 
 import android.accessibilityservice.AccessibilityService
@@ -194,3 +247,10 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         removeOverlay()
     
 
+EOF
+
+git add .
+git commit -m "Enable robust foreground service to run in background forever"
+git push
+rm -f update_bg.sh
+echo "=== FERTIG GEPUSHT! ==="
