@@ -9,15 +9,18 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
+import kotlin.math.abs
 
 class BackVibrateAccessibilityService : AccessibilityService() {
 
@@ -25,119 +28,160 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         var instance: BackVibrateAccessibilityService? = null
         private const val CHANNEL_ID = "backvibrate_foreground"
         private const val NOTIFICATION_ID = 1001
-    }
+        private const val DEBOUNCE_MS = 180L
+    
 
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var isLeftPosition = true
     private var isPreviewVisible = false
     private var isTouchDown = false
+    private var lastBackTime = 0L
 
-    override fun onServiceConnected() {
+    override fun onServiceConnected() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         super.onServiceConnected()
         instance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startForegroundNotification()
         updateConfig()
-    }
+    
 
-    private fun startForegroundNotification() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    private fun startForegroundNotification() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "rueckwartsvibiration Hintergrund-Dienst",
+                "rückwartsvibiration Hintergrund-Dienst",
                 NotificationManager.IMPORTANCE_LOW
-            ).apply {
+            ).apply {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 description = "Haelt das haptische Feedback im Hintergrund aktiv"
                 setShowBadge(false)
-            }
+            
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
-        }
+        
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("rueckwartsvibiration ist aktiv")
+            .setContentTitle("rückwartsvibiration ist aktiv")
             .setContentText("Haptik fuer Zurueck-Taste laeuft im Hintergrund")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            } else {
+             else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 startForeground(NOTIFICATION_ID, notification)
-            }
-        } else {
+            
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             startForeground(NOTIFICATION_ID, notification)
-        }
-    }
+        
+    
 
-    fun updateConfig() {
+    fun updateConfig() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         val prefs = getSharedPreferences("back_vibrate_prefs", MODE_PRIVATE)
         isLeftPosition = prefs.getBoolean("pos_left", true)
         isPreviewVisible = prefs.getBoolean("preview_overlay", false)
 
-        if (overlayView == null) {
+        if (overlayView == null) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             createOverlay()
-        } else {
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             overlayView?.setBackgroundColor(
                 if (isPreviewVisible) Color.argb(120, 255, 0, 0) else Color.TRANSPARENT
             )
-            try {
+            try {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 windowManager?.updateViewLayout(overlayView, getOverlayLayoutParams())
-            } catch (_: Exception) {}
-        }
-    }
+             catch (_: Exception) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        
+    
 
-    private fun createOverlay() {
+    private fun createOverlay() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         removeOverlay()
 
-        val view = View(this).apply {
+        val slopThreshold = 30 * resources.displayMetrics.density
+        var startX = 0f
+        var startY = 0f
+        var isCancelled = false
+
+        val view = View(this).apply {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             setBackgroundColor(if (isPreviewVisible) Color.argb(120, 255, 0, 0) else Color.TRANSPARENT)
-            setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                setOnApplyWindowInsetsListener {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts}  v, insets ->
+                    val navBars = insets.getInsets(WindowInsets.Type.navigationBars())
+                    val isNavBarVisible = navBars.bottom > 0  navBars.right > 0  navBars.left > 0
+                    v.visibility = if (isNavBarVisible) View.VISIBLE else View.GONE
+                    insets
+                
+            
+
+            setOnTouchListener {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts}  v, event ->
+                when (event.action) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                    MotionEvent.ACTION_DOWN -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                        startX = event.x
+                        startY = event.y
+                        isCancelled = false
                         isTouchDown = true
                         triggerVibration()
                         true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (isTouchDown) {
-                            isTouchDown = false
-                            performGlobalAction(GLOBAL_ACTION_BACK)
-                        }
+                    
+                    MotionEvent.ACTION_MOVE -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                        if (isTouchDown && !isCancelled) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                            val dx = abs(event.x - startX)
+                            val dy = abs(event.y - startY)
+                            if (dx > slopThreshold  dy > slopThreshold 
+                                event.x < 0  event.x > v.width  event.y < 0  event.y > v.height) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                                isCancelled = true
+                                isTouchDown = false
+                            
+                        
                         true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
+                    
+                    MotionEvent.ACTION_UP -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                        if (isTouchDown && !isCancelled) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                            isTouchDown = false
+                            executeBackAction()
+                        
+                        true
+                    
+                    MotionEvent.ACTION_CANCEL -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                         isTouchDown = false
                         true
-                    }
+                    
                     else -> false
-                }
-            }
-        }
+                
+            
+        
 
         val params = getOverlayLayoutParams()
-        try {
+        try {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             windowManager?.addView(view, params)
             overlayView = view
-        } catch (_: Exception) {}
-    }
+         catch (_: Exception) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+    
 
-    private fun getOverlayLayoutParams(): WindowManager.LayoutParams {
+    private fun executeBackAction() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        val now = SystemClock.uptimeMillis()
+        if (now - lastBackTime >= DEBOUNCE_MS) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            lastBackTime = now
+            performGlobalAction(GLOBAL_ACTION_BACK)
+        
+    
+
+    private fun getOverlayLayoutParams(): WindowManager.LayoutParams {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         val navBarHeightRes = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        val navBarHeight = if (navBarHeightRes > 0) {
+        val navBarHeight = if (navBarHeightRes > 0) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             resources.getDimensionPixelSize(navBarHeightRes)
-        } else {
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             (48 * displayMetrics.density).toInt()
-        }
+        
 
-        val targetWidth = screenWidth / 3
+        val targetWidth = if (isLandscape) screenWidth / 4 else screenWidth / 3
 
         return WindowManager.LayoutParams(
             targetWidth,
@@ -147,50 +191,58 @@ class BackVibrateAccessibilityService : AccessibilityService() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
-        ).apply {
+        ).apply {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             gravity = Gravity.BOTTOM or (if (isLeftPosition) Gravity.START else Gravity.END)
-        }
-    }
+        
+    
 
-    private fun removeOverlay() {
-        overlayView?.let {
-            try {
+    private fun removeOverlay() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        overlayView?.let {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            try {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                 windowManager?.removeView(it)
-            } catch (_: Exception) {}
+             catch (_: Exception) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             overlayView = null
-        }
-    }
+        
+    
 
-    private fun triggerVibration() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun triggerVibration() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        val prefs = getSharedPreferences("back_vibrate_prefs", MODE_PRIVATE)
+        val duration = prefs.getInt("vib_duration", 45).toLong()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             val vm = getSystemService(VibratorManager::class.java)
             vm?.defaultVibrator?.vibrate(
-                VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE)
+                VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE)
             )
-        } else {
-            @Suppress("DEPRECATION")
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            Suppress("DEPRECATION")
             val v = getSystemService(Vibrator::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                v?.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                v?.vibrate(45)
-            }
-        }
-    }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                v?.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+             else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                Suppress("DEPRECATION")
+                v?.vibrate(duration)
+            
+        
+    
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
+    override fun onConfigurationChanged(newConfig: Configuration) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         super.onConfigurationChanged(newConfig)
         updateConfig()
-    }
+    
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED 
+            event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+            overlayView?.requestLayout()
+        
+    
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
 
-    override fun onDestroy() {
+    override fun onDestroy() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         super.onDestroy()
         if (instance == this) instance = null
         removeOverlay()
-    }
-}
+    
+
