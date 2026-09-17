@@ -1,30 +1,148 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
+    android:background="#121212"
+    android:fillViewport="true">
 
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:layout_marginBottom="24dp"
-        android:text="Status wird geprüft..." />
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/btnOverlayPermission"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="1. Overlay-Berechtigung erteilen" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="BackVibrate"
+            android:textSize="28sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/btnAccessibilitySettings"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="2. Bedienungshilfe aktivieren" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Haptic Feedback fuer MagicOS 3-Tasten-Navigation"
+            android:textSize="13sp"
+            android:textColor="#888888"
+            android:gravity="center" />
 
-</LinearLayout>
+        <LinearLayout
+            android:id="@+id/statusCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="24dp"
+            android:layout_marginTop="28dp"
+            android:background="#1E1E1E">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DIENST-STATUS"
+                android:textSize="11sp"
+                android:textColor="#888888"
+                android:letterSpacing="0.15" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="PRUEFEN..."
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text=""
+                android:textSize="13sp"
+                android:textColor="#AAAAAA"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnOpenSettings"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="20dp"
+            android:text="In Bedienungshilfen aktivieren"
+            android:textSize="14sp"
+            android:backgroundTint="#1976D2" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="24dp"
+            android:background="#1C1C1E">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Position der Zurueck-Taste"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <RadioGroup
+                android:id="@+id/rgPosition"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <RadioButton
+                    android:id="@+id/rbLeft"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Links (Standard)"
+                    android:textColor="#DDDDDD"
+                    android:checked="true" />
+
+                <RadioButton
+                    android:id="@+id/rbRight"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Rechts"
+                    android:textColor="#DDDDDD" />
+            </RadioGroup>
+
+            <Switch
+                android:id="@+id/switchPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Overlay-Vorschau anzeigen (rot)"
+                android:textColor="#DDDDDD" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnTestVibration"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:text="Vibration testen"
+            android:backgroundTint="#2E2E2E" />
+
+        <Button
+            android:id="@+id/btnBattery"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:text="Akku-Optimierung ausschalten (Honor)"
+            android:backgroundTint="#2A2A2A" />
+
+    </LinearLayout>
+</ScrollView>
