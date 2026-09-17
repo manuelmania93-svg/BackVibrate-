@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">BackVibrate</string>
+    <string name="accessibility_service_description">Lässt das Handy beim Zurück-Wischen/-Tippen vibrieren.</string>
+</resources>
