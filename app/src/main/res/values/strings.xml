@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">BackVibrate</string>
-    <string name="accessibility_service_description">Fuegt Haptik-Feedback zur Zurueck-Taste auf MagicOS hinzu.</string>
+    <string name="app_name">rückwartsvibiration</string>
+    <string name="accessibility_service_description">Haptik-Feedback fuer die Zurueck-Taste auf MagicOS</string>
 </resources>

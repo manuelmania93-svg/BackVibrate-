@@ -45,7 +45,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "BackVibrate Hintergrund-Dienst",
+                "rückwartsvibiration Hintergrund-Dienst",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Hält das haptische Feedback im Hintergrund aktiv"
@@ -56,7 +56,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         }
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("BackVibrate ist aktiv")
+            .setContentTitle("rückwartsvibiration ist aktiv")
             .setContentText("Haptik fuer Zurueck-Taste laeuft im Hintergrund")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -96,46 +96,46 @@ class BackVibrateAccessibilityService : AccessibilityService() {
 
         val view = View(this).apply {
             setBackgroundColor(if (isPreviewVisible) Color.argb(120, 255, 0, 0) else Color.TRANSPARENT)
-            setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
+            setOnTouchListener {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts}  _, event ->
+                when (event.action) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                    MotionEvent.ACTION_DOWN -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                         isTouchDown = true
                         triggerVibration()
                         true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (isTouchDown) {
+                    
+                    MotionEvent.ACTION_UP -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+                        if (isTouchDown) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                             isTouchDown = false
                             performGlobalAction(GLOBAL_ACTION_BACK)
-                        }
+                        
                         true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
+                    
+                    MotionEvent.ACTION_CANCEL -> {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
                         isTouchDown = false
                         true
-                    }
+                    
                     else -> false
-                }
-            }
-        }
+                
+            
+        
 
         val params = getOverlayLayoutParams()
-        try {
+        try {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             windowManager?.addView(view, params)
             overlayView = view
-        } catch (_: Exception) {}
-    }
+         catch (_: Exception) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+    
 
-    private fun getOverlayLayoutParams(): WindowManager.LayoutParams {
+    private fun getOverlayLayoutParams(): WindowManager.LayoutParams {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
 
         val navBarHeightRes = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        val navBarHeight = if (navBarHeightRes > 0) {
+        val navBarHeight = if (navBarHeightRes > 0) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             resources.getDimensionPixelSize(navBarHeightRes)
-        } else {
+         else {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             (48 * displayMetrics.density).toInt()
-        }
+        
 
         val targetWidth = screenWidth / 3
 
@@ -161,7 +161,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         
     
 
-    private fun triggerVibration() {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
+    private fun triggerVibration() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts} 
             val vm = getSystemService(VibratorManager::class.java)
             vm?.defaultVibrator?.vibrate(
