@@ -16,8 +16,10 @@ import android.os.VibratorManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.widget.LinearLayout
 import androidx.core.app.NotificationCompat
 import kotlin.math.abs
 
@@ -31,11 +33,10 @@ class BackVibrateAccessibilityService : AccessibilityService() {
     }
 
     private var windowManager: WindowManager? = null
-    private var overlayView: View? = null
+    private var overlayContainer: LinearLayout? = null
     private var isLeftPosition = false
     private var isPreviewVisible = false
-    private var isTouchDown = false
-    private var lastBackTime = 0L
+    private var lastActionTime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -52,15 +53,15 @@ class BackVibrateAccessibilityService : AccessibilityService() {
                 "rueckwartsvibiration",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Haptik laeuft im Hintergrund"
+                description = "Haptik fuer Navigationstasten laeuft im Hintergrund"
                 setShowBadge(false)
             }
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(ch)
         }
 
         val notif: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("rückwartsvibiration ist aktiv")
-            .setContentText("Haptik fuer Zurueck-Taste laeuft im Hintergrund")
+            .setContentTitle("Navigation Haptik ist aktiv")
+            .setContentText("Haptik fuer alle 3 Tasten laeuft im Hintergrund")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -82,28 +83,50 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         isLeftPosition = prefs.getBoolean("pos_left", false)
         isPreviewVisible = prefs.getBoolean("preview_overlay", false)
 
-        if (overlayView == null) {
-            createOverlay()
-        } else {
-            overlayView?.setBackgroundColor(
-                if (isPreviewVisible) Color.argb(120, 255, 0, 0) else Color.TRANSPARENT
-            )
-            try {
-                windowManager?.updateViewLayout(overlayView, getOverlayLayoutParams())
-            } catch (_: Exception) {}
-        }
+        createOverlay()
     }
 
     private fun createOverlay() {
         removeOverlay()
 
+        // Honor standard: Left = Recents, Middle = Home, Right = Back
+        // If isLeftPosition is true: Left = Back, Middle = Home, Right = Recents
+        val leftAction = if (isLeftPosition) GLOBAL_ACTION_BACK else GLOBAL_ACTION_RECENTS
+        val rightAction = if (isLeftPosition) GLOBAL_ACTION_RECENTS else GLOBAL_ACTION_BACK
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+
+            // 1. Left button (Recents / Back)
+            addView(createButtonView(leftAction, Color.argb(100, 255, 0, 0)))
+
+            // 2. Middle button (Home)
+            addView(createButtonView(GLOBAL_ACTION_HOME, Color.argb(100, 0, 255, 0)))
+
+            // 3. Right button (Back / Recents)
+            addView(createButtonView(rightAction, Color.argb(100, 0, 0, 255)))
+        }
+
+        try {
+            windowManager?.addView(container, getOverlayLayoutParams())
+            overlayContainer = container
+        } catch (_: Exception) {}
+    }
+
+    private fun createButtonView(action: Int, previewColor: Int): View {
         val slop = 30 * resources.displayMetrics.density
         var startX = 0f
         var startY = 0f
         var isCancelled = false
+        var isTouchDown = false
 
-        val view = View(this).apply {
-            setBackgroundColor(if (isPreviewVisible) Color.argb(120, 255, 0, 0) else Color.TRANSPARENT)
+        return View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            setBackgroundColor(if (isPreviewVisible) previewColor else Color.TRANSPARENT)
 
             setOnTouchListener { v, event ->
                 when (event.action) {
@@ -129,7 +152,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
                     MotionEvent.ACTION_UP -> {
                         if (isTouchDown && !isCancelled) {
                             isTouchDown = false
-                            executeBack()
+                            executeAction(action)
                         }
                         true
                     }
@@ -141,46 +164,40 @@ class BackVibrateAccessibilityService : AccessibilityService() {
                 }
             }
         }
-
-        try {
-            windowManager?.addView(view, getOverlayLayoutParams())
-            overlayView = view
-        } catch (_: Exception) {}
     }
 
-    private fun executeBack() {
+    private fun executeAction(action: Int) {
         val now = SystemClock.uptimeMillis()
-        if (now - lastBackTime >= DEBOUNCE_MS) {
-            lastBackTime = now
-            performGlobalAction(GLOBAL_ACTION_BACK)
+        if (now - lastActionTime >= DEBOUNCE_MS) {
+            lastActionTime = now
+            performGlobalAction(action)
         }
     }
 
     private fun getOverlayLayoutParams(): WindowManager.LayoutParams {
         val dm = resources.displayMetrics
-        val isLand = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val resId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         val h = if (resId > 0) resources.getDimensionPixelSize(resId) else (48 * dm.density).toInt()
-        val w = if (isLand) dm.widthPixels / 4 else dm.widthPixels / 3
 
         return WindowManager.LayoutParams(
-            w, h,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            h,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.BOTTOM or (if (isLeftPosition) Gravity.START else Gravity.END)
+            gravity = Gravity.BOTTOM
         }
     }
 
     private fun removeOverlay() {
-        overlayView?.let {
+        overlayContainer?.let {
             try {
                 windowManager?.removeView(it)
             } catch (_: Exception) {}
-            overlayView = null
+            overlayContainer = null
         }
     }
 
@@ -210,7 +227,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED ||
             event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            overlayView?.requestLayout()
+            overlayContainer?.requestLayout()
         }
     }
 
