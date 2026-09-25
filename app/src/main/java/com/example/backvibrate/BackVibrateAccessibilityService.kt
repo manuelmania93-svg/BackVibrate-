@@ -38,13 +38,15 @@ class BackVibrateAccessibilityService : AccessibilityService() {
     private var isPreviewVisible = false
     private var lastActionTime = 0L
 
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        instance = this
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+override fun onServiceConnected() {
+    super.onServiceConnected()
+    instance = this
+    windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    try {
         startForegroundNotification()
-        updateConfig()
-    }
+    } catch (_: Exception) {}
+    updateConfig()
+}
 
     private fun startForegroundNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
