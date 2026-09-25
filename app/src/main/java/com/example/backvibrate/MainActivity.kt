@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {.g{it{,hub,ignore},radle},README.md,ap
         val rgPos = findViewById<RadioGroup>(R.id.rgPosition)
         val rbLeft = findViewById<RadioButton>(R.id.rbLeft)
         val rbRight = findViewById<RadioButton>(R.id.rbRight)
-        if (prefs.getBoolean("pos_left", true)) rbLeft.isChecked = true else rbRight.isChecked = true
+        if (prefs.getBoolean("pos_left", false)) rbLeft.isChecked = true else rbRight.isChecked = true
         rgPos.setOnCheckedChangeListener {.g{it{,hub,ignore},radle},README.md,app,build.gradle.kts,gradle{,.properties,w{,.bat}},settings.gradle.kts}  _, id ->
             prefs.edit().putBoolean("pos_left", id == R.id.rbLeft).apply()
             notifyService()
