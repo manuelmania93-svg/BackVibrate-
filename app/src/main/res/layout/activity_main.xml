@@ -3,3 +3,160 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#121212"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Status Card -->
+        <LinearLayout
+            android:id="@+id/statusCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2B1616"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="INAKTIV"
+                android:textColor="#E53935"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Tippe unten auf den Button und aktiviere rückwartsvibiration."
+                android:textColor="#CCCCCC"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Button: Open Accessibility Settings -->
+        <Button
+            android:id="@+id/btnOpenSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="In Bedienungshilfen aktivieren"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Position Settings -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Position der Zurück-Taste"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp" />
+
+        <RadioGroup
+            android:id="@+id/rgPosition"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rbLeft"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Links"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="24dp" />
+
+            <RadioButton
+                android:id="@+id/rbRight"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rechts (Honor)"
+                android:textColor="#FFFFFF" />
+        </RadioGroup>
+
+        <!-- Vibration Strength -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Vibrationsstärke"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp" />
+
+        <RadioGroup
+            android:id="@+id/rgStrength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rbSoft"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sanft"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="16dp" />
+
+            <RadioButton
+                android:id="@+id/rbNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Normal"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="16dp" />
+
+            <RadioButton
+                android:id="@+id/rbStrong"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Stark"
+                android:textColor="#FFFFFF" />
+        </RadioGroup>
+
+        <!-- Preview Switch -->
+        <Switch
+            android:id="@+id/switchPreview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Touch-Bereich rot anzeigen (Test)"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Button: Test Vibration -->
+        <Button
+            android:id="@+id/btnTestVibration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vibration testen"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Button: Battery Optimization -->
+        <Button
+            android:id="@+id/btnBattery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Akku-Optimierung deaktivieren"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Button: Honor App Start Settings -->
+        <Button
+            android:id="@+id/btnHonorAppStart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Honor App-Start Einstellungen"
+            android:layout_marginBottom="12dp" />
+
+    </LinearLayout>
+</ScrollView>
