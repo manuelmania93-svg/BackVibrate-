@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.widget.LinearLayout
 import androidx.core.app.NotificationCompat
@@ -29,6 +30,7 @@ class BackVibrateAccessibilityService : AccessibilityService() {
         var instance: BackVibrateAccessibilityService? = null
         private const val CHANNEL_ID = "backvibrate_foreground"
         private const val NOTIFICATION_ID = 1001
+        private const val TAG = "BackVibrate"
         private const val DEBOUNCE_MS = 180L
     }
 
@@ -44,7 +46,9 @@ override fun onServiceConnected() {
     windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
     try {
         startForegroundNotification()
-    } catch (_: Exception) {}
+    } catch (e: Exception) {
+        Log.e(TAG, "startForeground failed - overlay still works, but process priority is lower", e)
+    }
     updateConfig()
 }
 
@@ -116,7 +120,9 @@ override fun onServiceConnected() {
         try {
             windowManager?.addView(container, getOverlayLayoutParams())
             overlayContainer = container
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not add overlay window", e)
+        }
     }
 
     private fun createButtonView(action: Int, previewColor: Int): View {
@@ -198,7 +204,9 @@ override fun onServiceConnected() {
         overlayContainer?.let {
             try {
                 windowManager?.removeView(it)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not remove overlay window", e)
+            }
             overlayContainer = null
         }
     }
