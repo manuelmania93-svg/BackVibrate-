@@ -41,6 +41,11 @@ adb reboot
 sleep 10
 wait_boot
 sleep 25
+echo "--- diagnostics"
+adb shell dumpsys package $PKG | grep -i "POST_NOTIFICATIONS" | head -3
+adb shell dumpsys notification --noredact | grep -i "backvibrate" | head -10
+adb shell cmd appops get $PKG POST_NOTIFICATION
+echo "--- end diagnostics"
 NOTI=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate ist aus")
 echo "recovery notification hits: $NOTI"
 adb logcat -d -s BackVibrate | tail -20
