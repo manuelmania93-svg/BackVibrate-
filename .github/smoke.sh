@@ -15,10 +15,19 @@ wait_boot() {
 }
 
 adb install -r "$APK" || fail "install"
-adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
+grant_notifications() {
+  adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
+  adb shell pm set-permission-flags $PKG android.permission.POST_NOTIFICATIONS user-set || true
+  adb shell cmd appops set $PKG POST_NOTIFICATION allow || true
+}
+grant_notifications
 # launch once so the app leaves the stopped state and can receive BOOT_COMPLETED
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
+# the first launch asks for the notification permission itself; make sure it ends up allowed
+adb shell input keyevent KEYCODE_BACK
+grant_notifications
+adb shell dumpsys package $PKG | grep "POST_NOTIFICATIONS: granted" | head -2
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"
