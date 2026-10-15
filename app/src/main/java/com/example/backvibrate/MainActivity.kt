@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
-        val en = isServiceEnabled()
+        val en = isServiceEnabled() && BackVibrateAccessibilityService.instance != null
         val tvStatus = findViewById<TextView>(R.id.tvStatus)
         val tvHint = findViewById<TextView>(R.id.tvHint)
         val btn = findViewById<Button>(R.id.btnOpenSettings)
@@ -187,25 +187,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testVibration() {
-        val d = prefs.getInt("vib_duration", 45).toLong()
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                getSystemService(VibratorManager::class.java)?.defaultVibrator?.vibrate(
-                    VibrationEffect.createOneShot(d, VibrationEffect.DEFAULT_AMPLITUDE)
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                val v = getSystemService(Vibrator::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v?.vibrate(VibrationEffect.createOneShot(d, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    v?.vibrate(d)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "testVibration failed", e)
-        }
+        Haptics.pulse(this, prefs.getInt("vib_duration", 45).toLong())
     }
 
     private fun openHonorSettings() {
