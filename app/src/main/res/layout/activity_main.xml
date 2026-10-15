@@ -241,6 +241,58 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Card 6: optional Shizuku self re-enable -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="18dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Optional: Selbst-Einschalten nach Neustart (Shizuku)"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Experimentell. Braucht die App Shizuku, und Shizuku muss nach dem Neustart laufen (z.B. per MacroDroid gestartet). Ohne Shizuku passiert nichts, dann gilt weiter die Benachrichtigung."
+                android:textColor="#8F96A8"
+                android:textSize="12sp" />
+
+            <Switch
+                android:id="@+id/switchShizuku"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Selbst-Einschalten aktivieren"
+                android:textColor="#DDE2EE"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvShizukuStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="#FFB300"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnShizukuSetup"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:text="Einmalig per Shizuku freigeben"
+                android:textAllCaps="false"
+                android:textSize="13sp" />
+        </LinearLayout>
+
         <!-- Card 5: Honor MagicOS Optimization -->
         <LinearLayout
             android:layout_width="match_parent"

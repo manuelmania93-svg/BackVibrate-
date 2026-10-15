@@ -94,13 +94,63 @@ class MainActivity : AppCompatActivity() {
             notifyService()
         }
 
+        val swShizuku = findViewById<Switch>(R.id.switchShizuku)
+        swShizuku.isChecked = prefs.getBoolean(SelfReenable.PREF_OPT_IN, false)
+        swShizuku.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(SelfReenable.PREF_OPT_IN, checked).apply()
+            updateShizukuStatus()
+        }
+        findViewById<Button>(R.id.btnShizukuSetup).setOnClickListener { setupShizuku() }
+
         requestNotificationPermissionIfNeeded()
+    }
+
+    private fun updateShizukuStatus() {
+        val tv = findViewById<TextView>(R.id.tvShizukuStatus)
+        val ready = SelfReenable.hasSecureSettings(this)
+        tv.text = when {
+            ready -> "✓ Berechtigung vorhanden. Nach einem Neustart schaltet sich der Dienst selbst ein, wenn die Option oben an ist."
+            !SelfReenable.shizukuRunning() -> "Shizuku läuft nicht oder ist nicht installiert. Dann nutzt die App die Benachrichtigung."
+            !SelfReenable.shizukuPermitted() -> "Shizuku läuft. Tippe auf den Button und erlaube den Zugriff."
+            else -> "Shizuku erlaubt. Tippe auf den Button für die einmalige Freigabe."
+        }
+        tv.setTextColor(if (ready) 0xFF4CAF50.toInt() else 0xFFFFB300.toInt())
+    }
+
+    private fun setupShizuku() {
+        if (!SelfReenable.shizukuRunning()) {
+            updateShizukuStatus()
+            return
+        }
+        if (!SelfReenable.shizukuPermitted()) {
+            try {
+                rikka.shizuku.Shizuku.addRequestPermissionResultListener(
+                    object : rikka.shizuku.Shizuku.OnRequestPermissionResultListener {
+                        override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
+                            rikka.shizuku.Shizuku.removeRequestPermissionResultListener(this)
+                            runOnUiThread { updateShizukuStatus() }
+                        }
+                    }
+                )
+                rikka.shizuku.Shizuku.requestPermission(1001)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Shizuku permission request failed", t)
+            }
+            return
+        }
+        SelfReenable.grantViaShizuku(this) { ok ->
+            runOnUiThread {
+                Log.d(TAG, "Shizuku one-time grant result: $ok")
+                updateShizukuStatus()
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         updateStatus()
         updateProtectionStatus()
+        updateShizukuStatus()
     }
 
     private fun notifyService() {
