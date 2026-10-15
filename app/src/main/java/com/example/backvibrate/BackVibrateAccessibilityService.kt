@@ -213,20 +213,7 @@ override fun onServiceConnected() {
 
     private fun triggerVibration() {
         val d = getSharedPreferences("back_vibrate_prefs", MODE_PRIVATE).getInt("vib_duration", 45).toLong()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            getSystemService(VibratorManager::class.java)?.defaultVibrator?.vibrate(
-                VibrationEffect.createOneShot(d, VibrationEffect.DEFAULT_AMPLITUDE)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            val v = getSystemService(Vibrator::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                v?.vibrate(VibrationEffect.createOneShot(d, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                v?.vibrate(d)
-            }
-        }
+        Haptics.pulse(this, d)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
