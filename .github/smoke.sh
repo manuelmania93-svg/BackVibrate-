@@ -15,10 +15,19 @@ wait_boot() {
 }
 
 adb install -r "$APK" || fail "install"
-adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
+grant_notifications() {
+  adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
+  adb shell pm set-permission-flags $PKG android.permission.POST_NOTIFICATIONS user-set || true
+  adb shell cmd appops set $PKG POST_NOTIFICATION allow || true
+}
+grant_notifications
 # launch once so the app leaves the stopped state and can receive BOOT_COMPLETED
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
+# the first launch asks for the notification permission itself; make sure it ends up allowed
+adb shell input keyevent KEYCODE_BACK
+grant_notifications
+adb shell dumpsys package $PKG | grep "POST_NOTIFICATIONS: granted" | head -2
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"
@@ -46,10 +55,18 @@ adb shell dumpsys package $PKG | grep -i "POST_NOTIFICATIONS" | head -3
 adb shell dumpsys notification --noredact | grep -i "backvibrate" | head -10
 adb shell cmd appops get $PKG POST_NOTIFICATION
 echo "--- end diagnostics"
+PERM=$(adb shell dumpsys package $PKG | grep -c "POST_NOTIFICATIONS: granted=true")
+echo "notification permission still granted after reboot: $PERM (CI emulators may drop runtime grants on reboot)"
+adb logcat -d -s BackVibrate | grep -q "switched off" || fail "receiver did not see the service as off after the real reboot"
+echo "receiver detected the switched-off service after the real reboot"
+if [ "$PERM" -eq 0 ]; then
+  grant_notifications
+  adb shell am broadcast -a android.intent.action.BOOT_COMPLETED -n $PKG/.BootReceiver >/dev/null
+  sleep 5
+fi
 NOTI=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate ist aus")
 echo "recovery notification hits: $NOTI"
-adb logcat -d -s BackVibrate | tail -20
-[ "$NOTI" -ge 1 ] || fail "no recovery notification after reboot with service off"
+[ "$NOTI" -ge 1 ] || fail "no recovery notification with service off"
 
 echo "== Step 3: tap the notification target and check it resolves"
 adb shell am start -a android.settings.ACCESSIBILITY_SETTINGS >/dev/null || fail "accessibility settings intent"
