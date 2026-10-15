@@ -55,10 +55,18 @@ adb shell dumpsys package $PKG | grep -i "POST_NOTIFICATIONS" | head -3
 adb shell dumpsys notification --noredact | grep -i "backvibrate" | head -10
 adb shell cmd appops get $PKG POST_NOTIFICATION
 echo "--- end diagnostics"
+PERM=$(adb shell dumpsys package $PKG | grep -c "POST_NOTIFICATIONS: granted=true")
+echo "notification permission still granted after reboot: $PERM (CI emulators may drop runtime grants on reboot)"
+adb logcat -d -s BackVibrate | grep -q "switched off" || fail "receiver did not see the service as off after the real reboot"
+echo "receiver detected the switched-off service after the real reboot"
+if [ "$PERM" -eq 0 ]; then
+  grant_notifications
+  adb shell am broadcast -a android.intent.action.BOOT_COMPLETED -n $PKG/.BootReceiver >/dev/null
+  sleep 5
+fi
 NOTI=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate ist aus")
 echo "recovery notification hits: $NOTI"
-adb logcat -d -s BackVibrate | tail -20
-[ "$NOTI" -ge 1 ] || fail "no recovery notification after reboot with service off"
+[ "$NOTI" -ge 1 ] || fail "no recovery notification with service off"
 
 echo "== Step 3: tap the notification target and check it resolves"
 adb shell am start -a android.settings.ACCESSIBILITY_SETTINGS >/dev/null || fail "accessibility settings intent"
