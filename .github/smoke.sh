@@ -33,7 +33,7 @@ done
 adb shell dumpsys window windows | grep -q "TYPE_ACCESSIBILITY_OVERLAY\|type=2032" && echo "overlay window present" || echo "note: overlay window not found in dumpsys (not fatal)"
 
 echo "== Step 2: simulate MagicOS: switch the service off, then a real reboot"
-adb shell settings put secure enabled_accessibility_services ""
+adb shell settings delete secure enabled_accessibility_services
 adb shell settings put secure accessibility_enabled 0
 sleep 2
 adb logcat -c
@@ -62,4 +62,6 @@ wait_boot
 sleep 60
 adb shell dumpsys accessibility | grep -q "$PKG" || fail "service not running after reboot with it enabled"
 adb logcat -d -s BackVibrate | tail -20
+NOTI2=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate läuft nicht")
+[ "$NOTI2" -eq 0 ] || fail "false 'läuft nicht' warning although service runs"
 echo "SMOKE OK"
