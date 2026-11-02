@@ -16,7 +16,26 @@ android {
     }
 
 
+    signingConfigs {
+        // CI signs with a permanent key stored only as a GitHub Actions secret.
+        // Local/fork builds without the secret fall back to the default debug key.
+        create("ci") {
+            val storePath = System.getenv("BV_KEYSTORE_PATH")
+            if (storePath != null) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("BV_STORE_PASSWORD")
+                keyAlias = "backvibrate"
+                keyPassword = System.getenv("BV_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (System.getenv("BV_KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
         release {
             isMinifyEnabled = false
         }
