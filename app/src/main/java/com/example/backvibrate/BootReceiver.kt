@@ -49,22 +49,24 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     private fun onBoot(context: Context, pending: PendingResult? = null) {
-        if (!isServiceEnabled(context) && SelfReenable.isOptedIn(context)) {
+        if (!isServiceEnabled(context) && SelfReenable.autoEnabled(context)) {
             if (SelfReenable.reenable(context)) {
                 Log.d(TAG, "Boot: service switched back on by self re-enable")
                 pending?.finish()
                 return
             }
-            if (SelfReenable.shizukuRunning() && SelfReenable.shizukuPermitted()) {
-                SelfReenable.grantViaShizuku(context) { granted ->
-                    val ok = granted && SelfReenable.reenable(context)
-                    Log.d(TAG, "Boot: Shizuku grant=$granted, re-enabled=$ok")
-                    if (!ok) notifyOff(context)
-                    pending?.finish()
-                }
-                return
+            Log.w(TAG, "Boot: WRITE_SECURE_SETTINGS present but re-enable failed, using notification")
+        }
+        if (!isServiceEnabled(context) && SelfReenable.shizukuOptedIn(context)
+            && SelfReenable.shizukuRunning() && SelfReenable.shizukuPermitted()
+        ) {
+            SelfReenable.grantViaShizuku(context) { granted ->
+                val ok = granted && SelfReenable.reenable(context)
+                Log.d(TAG, "Boot: Shizuku grant=$granted, re-enabled=$ok")
+                if (!ok) notifyOff(context)
+                pending?.finish()
             }
-            Log.d(TAG, "Boot: self re-enable not possible (no permission, Shizuku not running), using notification")
+            return
         }
         try {
             bootCheck(context)

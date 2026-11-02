@@ -95,9 +95,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val swShizuku = findViewById<Switch>(R.id.switchShizuku)
-        swShizuku.isChecked = prefs.getBoolean(SelfReenable.PREF_OPT_IN, false)
+        bindAutoSwitch(swShizuku)
         swShizuku.setOnCheckedChangeListener { _, checked ->
-            prefs.edit().putBoolean(SelfReenable.PREF_OPT_IN, checked).apply()
+            if (SelfReenable.hasSecureSettings(this)) {
+                prefs.edit().putBoolean(SelfReenable.PREF_AUTO, checked).apply()
+            } else {
+                prefs.edit().putBoolean(SelfReenable.PREF_SHIZUKU_OPT_IN, checked).apply()
+            }
             updateShizukuStatus()
         }
         findViewById<Button>(R.id.btnShizukuSetup).setOnClickListener { setupShizuku() }
@@ -105,16 +109,26 @@ class MainActivity : AppCompatActivity() {
         requestNotificationPermissionIfNeeded()
     }
 
+    private fun bindAutoSwitch(sw: Switch) {
+        sw.isChecked = if (SelfReenable.hasSecureSettings(this)) {
+            prefs.getBoolean(SelfReenable.PREF_AUTO, true)
+        } else {
+            prefs.getBoolean(SelfReenable.PREF_SHIZUKU_OPT_IN, false)
+        }
+    }
+
     private fun updateShizukuStatus() {
         val tv = findViewById<TextView>(R.id.tvShizukuStatus)
         val ready = SelfReenable.hasSecureSettings(this)
+        val autoOn = ready && prefs.getBoolean(SelfReenable.PREF_AUTO, true)
         tv.text = when {
-            ready -> "✓ Berechtigung vorhanden. Nach einem Neustart schaltet sich der Dienst selbst ein, wenn die Option oben an ist."
-            !SelfReenable.shizukuRunning() -> "Shizuku läuft nicht oder ist nicht installiert. Dann nutzt die App die Benachrichtigung."
+            autoOn -> "✓ Automatik aktiv: nach einem Neustart schaltet sich der Dienst von selbst wieder ein."
+            ready -> "Berechtigung vorhanden, aber die Automatik ist oben ausgeschaltet."
+            !SelfReenable.shizukuRunning() -> "Keine Berechtigung: einmalig per PC (adb) erteilen oder per Shizuku freigeben. Ohne sie kommt nach dem Neustart nur die Benachrichtigung."
             !SelfReenable.shizukuPermitted() -> "Shizuku läuft. Tippe auf den Button und erlaube den Zugriff."
             else -> "Shizuku erlaubt. Tippe auf den Button für die einmalige Freigabe."
         }
-        tv.setTextColor(if (ready) 0xFF4CAF50.toInt() else 0xFFFFB300.toInt())
+        tv.setTextColor(if (autoOn) 0xFF4CAF50.toInt() else 0xFFFFB300.toInt())
     }
 
     private fun setupShizuku() {
@@ -150,6 +164,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updateStatus()
         updateProtectionStatus()
+        bindAutoSwitch(findViewById(R.id.switchShizuku))
         updateShizukuStatus()
     }
 

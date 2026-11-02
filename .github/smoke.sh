@@ -70,3 +70,28 @@ adb logcat -d -s BackVibrate | tail -20
 NOTI2=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate läuft nicht")
 [ "$NOTI2" -eq 0 ] || fail "false 'läuft nicht' warning although service runs"
 echo "SMOKE OK"
+
+echo "== Step 4: one-time WRITE_SECURE_SETTINGS grant, then a MagicOS-style kill + reboot must self-heal"
+adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS || fail "grant WRITE_SECURE_SETTINGS"
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb reboot
+sleep 10
+wait_boot
+OK=0
+ENA=""
+for i in $(seq 1 20); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || fail "self re-enable did not restore the service after reboot (enabled=$ENA)"
+RUN=0
+for i in $(seq 1 20); do
+  if adb shell dumpsys accessibility | grep -q "$PKG"; then RUN=1; break; fi
+  sleep 2
+done
+[ "$RUN" = 1 ] || fail "service listed as enabled but not bound after self re-enable"
+adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
+echo "SMOKE SELF-REENABLE OK"

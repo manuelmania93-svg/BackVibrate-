@@ -19,13 +19,27 @@ import rikka.shizuku.Shizuku
 object SelfReenable {
     private const val TAG = "BackVibrate"
     private const val PERMISSION = "android.permission.WRITE_SECURE_SETTINGS"
-    const val PREF_OPT_IN = "shizuku_opt_in"
 
-    fun isOptedIn(context: Context): Boolean =
-        context.getSharedPreferences("back_vibrate_prefs", Context.MODE_PRIVATE).getBoolean(PREF_OPT_IN, false)
+    /** Master switch for the automatic re-enable. Default ON: granting the permission from a PC
+     *  is itself the opt-in, so the feature works with zero taps on the phone. */
+    const val PREF_AUTO = "auto_reenable"
+
+    /** Explicit opt-in for the Shizuku grant path (background Shizuku calls stay opt-in). */
+    const val PREF_SHIZUKU_OPT_IN = "shizuku_opt_in"
+
+    private fun prefs(context: Context) =
+        context.getSharedPreferences("back_vibrate_prefs", Context.MODE_PRIVATE)
 
     fun hasSecureSettings(context: Context): Boolean =
         context.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
+
+    /** Permission path: runs after a one-time adb grant, no in-app opt-in needed. */
+    fun autoEnabled(context: Context): Boolean =
+        hasSecureSettings(context) && prefs(context).getBoolean(PREF_AUTO, true)
+
+    /** Shizuku path: only when the user explicitly switched it on in the app. */
+    fun shizukuOptedIn(context: Context): Boolean =
+        !hasSecureSettings(context) && prefs(context).getBoolean(PREF_SHIZUKU_OPT_IN, false)
 
     fun shizukuRunning(): Boolean = try {
         Shizuku.pingBinder() && !Shizuku.isPreV11()

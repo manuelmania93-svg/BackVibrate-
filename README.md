@@ -101,3 +101,34 @@ per Trial-and-Error: Wert ändern, `./gradlew installDebug`, testen.
 ```
 Das baut die App neu und installiert sie direkt über adb – Berechtigungen
 bleiben erhalten, du musst sie nicht erneut vergeben.
+
+## Selbst-Einschalten nach Neustart (einmalig per PC freigeben)
+
+Honor/MagicOS schaltet den Bedienungshilfen-Dienst nach manchen Neustarts
+wieder aus. Damit sich die App nach jedem Neustart selbst wieder
+aktiviert, erteilst du ihr einmalig per USB eine Spezial-Berechtigung:
+
+1. App installieren und mindestens einmal öffnen.
+2. Handy per USB anschließen, dann in Git Bash:
+
+```bash
+adb shell pm grant com.example.backvibrate android.permission.WRITE_SECURE_SETTINGS
+```
+
+Das war's. Ab jetzt gilt:
+- Nach jedem Neustart schaltet sich der Dienst innerhalb von wenigen
+  Sekunden von selbst wieder ein (kein Shizuku nötig).
+- Der Schalter "Selbst-Einschalten aktivieren" in der App steuert die
+  Automatik (standardmäßig an).
+- Ohne die Berechtigung bekommst du weiterhin nur die Benachrichtigung
+  zum manuellen Einschalten.
+
+Optional: Wer keinen PC nutzen will, kann die Berechtigung stattdessen
+über die App **Shizuku** freigeben (Shizuku starten, in BackVibrate auf
+den Button tippen, Zugriff erlauben). Das läuft nur, wenn der
+Shizuku-Dienst aktiv ist.
+
+Hinweis für eigene Builds: im Repo liegt ein fester `debug.keystore`,
+damit Updates aus dem Workflow installierbar bleiben. Wer vorher eine
+APK aus dem Workflow installiert hat, muss die App einmalig deinstallieren
+und neu installieren, weil sich der Signatur-Schlüssel geändert hat.
