@@ -19,6 +19,7 @@ adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant not
 # launch once so the app leaves the stopped state and can receive BOOT_COMPLETED
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-before-grant.png" 2>/dev/null || true
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"
@@ -99,5 +100,8 @@ for i in $(seq 1 20); do
   sleep 2
 done
 [ "$RUN" = 1 ] || fail "service listed as enabled but not bound after self re-enable"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 2
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-auto-on.png" 2>/dev/null || true
 adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
 echo "SMOKE SELF-REENABLE OK"
