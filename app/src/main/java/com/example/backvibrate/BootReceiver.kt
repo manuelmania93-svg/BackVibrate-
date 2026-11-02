@@ -43,12 +43,48 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED -> onBoot(context)
+            Intent.ACTION_BOOT_COMPLETED -> onBoot(context, goAsync())
             ACTION_CHECK_RUNNING -> onCheckRunning(context)
         }
     }
 
-    private fun onBoot(context: Context) {
+    private fun onBoot(context: Context, pending: PendingResult? = null) {
+        if (!isServiceEnabled(context) && SelfReenable.autoEnabled(context)) {
+            if (SelfReenable.reenable(context)) {
+                Log.d(TAG, "Boot: service switched back on by self re-enable")
+                pending?.finish()
+                return
+            }
+            Log.w(TAG, "Boot: WRITE_SECURE_SETTINGS present but re-enable failed, using notification")
+        }
+        if (!isServiceEnabled(context) && SelfReenable.shizukuOptedIn(context)
+            && SelfReenable.shizukuRunning() && SelfReenable.shizukuPermitted()
+        ) {
+            SelfReenable.grantViaShizuku(context) { granted ->
+                val ok = granted && SelfReenable.reenable(context)
+                Log.d(TAG, "Boot: Shizuku grant=$granted, re-enabled=$ok")
+                if (!ok) notifyOff(context)
+                pending?.finish()
+            }
+            return
+        }
+        try {
+            bootCheck(context)
+        } finally {
+            pending?.finish()
+        }
+    }
+
+    private fun notifyOff(context: Context) {
+        postNotification(
+            context,
+            "BackVibrate ist aus - tippen zum Einschalten",
+            "Nach dem Neustart wurde die Haptik ausgeschaltet. Tippen, dann BackVibrate in den Bedienungshilfen einschalten.",
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        )
+    }
+
+    private fun bootCheck(context: Context) {
         if (!isServiceEnabled(context)) {
             Log.w(TAG, "Boot: accessibility service is switched off, posting recovery notification")
             postNotification(
@@ -75,7 +111,7 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
         if (!isServiceEnabled(context)) {
-            onBoot(context)
+            bootCheck(context)
             return
         }
         Log.w(TAG, "Check: service is enabled but not running, posting notification")

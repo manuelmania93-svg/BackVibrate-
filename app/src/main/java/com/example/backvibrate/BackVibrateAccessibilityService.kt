@@ -212,7 +212,12 @@ override fun onServiceConnected() {
     }
 
     private fun triggerVibration() {
-        val d = getSharedPreferences("back_vibrate_prefs", MODE_PRIVATE).getInt("vib_duration", 45).toLong()
+        val prefs = getSharedPreferences("back_vibrate_prefs", MODE_PRIVATE)
+        if (!prefs.getBoolean("vibration_enabled", true)) {
+            Log.d(TAG, "vibration suppressed (master switch off)")
+            return
+        }
+        val d = prefs.getInt("vib_duration", 45).toLong()
         Haptics.pulse(this, d)
     }
 

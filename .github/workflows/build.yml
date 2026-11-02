@@ -17,7 +17,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Prepare signing key (from repo secrets; skipped when absent)
+        env:
+          BV_KEYSTORE_B64: ${{ secrets.BV_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$BV_KEYSTORE_B64" ]; then
+            echo "$BV_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bv.keystore"
+            echo "BV_KEYSTORE_PATH=$RUNNER_TEMP/bv.keystore" >> "$GITHUB_ENV"
+          fi
+
       - name: Build APK
+        env:
+          BV_STORE_PASSWORD: ${{ secrets.BV_STORE_PASSWORD }}
+          BV_KEY_PASSWORD: ${{ secrets.BV_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -39,7 +51,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Prepare signing key (from repo secrets; skipped when absent)
+        env:
+          BV_KEYSTORE_B64: ${{ secrets.BV_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$BV_KEYSTORE_B64" ]; then
+            echo "$BV_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bv.keystore"
+            echo "BV_KEYSTORE_PATH=$RUNNER_TEMP/bv.keystore" >> "$GITHUB_ENV"
+          fi
+
       - name: Build APK
+        env:
+          BV_STORE_PASSWORD: ${{ secrets.BV_STORE_PASSWORD }}
+          BV_KEY_PASSWORD: ${{ secrets.BV_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -50,6 +74,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Download previous build APK (install-over test)
+        uses: actions/download-artifact@v4
+        with:
+          name: BackVibrate-debug
+          run-id: 41464991403
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: old-apk
+
       - name: Emulator smoke test (real reboot)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -58,3 +90,15 @@ jobs:
           target: google_apis
           disable-animations: true
           script: bash .github/smoke.sh
+
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BackVibrate-ui-screenshots
+          path: |
+            bv-ui-before-grant.png
+            bv-ui-auto-on.png
+            bv-ui-vibration-off.png
+            bv-ui-off-after-reboot.png
+          if-no-files-found: warn
