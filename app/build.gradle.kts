@@ -15,16 +15,6 @@ android {
         versionName = "1.0"
     }
 
-    signingConfigs {
-        named("debug") {
-            // Committed debug key so every CI build signs identically and installs as an update
-            // over any earlier CI build (standard debug credentials, personal sideload app).
-            storeFile = rootProject.file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
 
     buildTypes {
         release {
