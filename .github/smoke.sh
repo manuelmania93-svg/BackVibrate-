@@ -37,6 +37,8 @@ adb shell settings delete secure enabled_accessibility_services
 adb shell settings put secure accessibility_enabled 0
 sleep 2
 adb logcat -c
+adb shell sync
+sleep 12
 adb reboot
 sleep 10
 wait_boot
@@ -61,6 +63,8 @@ adb shell settings put secure enabled_accessibility_services "$SVC"
 adb shell settings put secure accessibility_enabled 1
 sleep 3
 adb logcat -c
+adb shell sync
+sleep 12
 adb reboot
 sleep 10
 wait_boot
@@ -76,6 +80,8 @@ adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS || fail "grant 
 adb shell settings delete secure enabled_accessibility_services
 adb shell settings put secure accessibility_enabled 0
 adb logcat -c
+adb shell sync
+sleep 12
 adb reboot
 sleep 10
 wait_boot
