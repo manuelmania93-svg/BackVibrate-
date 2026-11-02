@@ -172,6 +172,12 @@ for i in $(seq 1 20); do
 done
 [ "$OK" = 1 ] || fail "service did not auto-reenable on the OFF leg (enabled=$ENA)"
 adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
+RUN=0
+for i in $(seq 1 20); do
+  if adb shell dumpsys accessibility | grep -q "$PKG"; then RUN=1; break; fi
+  sleep 2
+done
+[ "$RUN" = 1 ] || fail "service enabled but not bound on the OFF leg"
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" || fail "off-after-reboot screenshot capture"
