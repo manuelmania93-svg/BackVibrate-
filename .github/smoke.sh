@@ -37,6 +37,16 @@ PY
   adb shell input tap $xy || return 1
 }
 
+# Wait until the accessibility service is actually bound (running), not just listed as enabled.
+wait_bound() {
+  local i
+  for i in $(seq 1 45); do
+    if adb shell dumpsys activity services $PKG | grep -q "BackVibrateAccessibilityService"; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
 OLD=$(ls old-apk/*.apk 2>/dev/null | head -1)
 if [ -n "$OLD" ]; then
   echo "== Step 0: install previous build, grant, then update over it"
@@ -140,14 +150,9 @@ for i in $(seq 1 20); do
   sleep 3
 done
 [ "$OK" = 1 ] || fail "self re-enable did not restore the service after reboot (enabled=$ENA)"
-RUN=0
-for i in $(seq 1 20); do
-  if adb shell dumpsys accessibility | grep -q "$PKG"; then RUN=1; break; fi
-  sleep 2
-done
-[ "$RUN" = 1 ] || fail "service listed as enabled but not bound after self re-enable"
+wait_bound || fail "service listed as enabled but not bound after self re-enable"
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
-sleep 2
+sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-auto-on.png" 2>/dev/null || true
 adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
 echo "SMOKE SELF-REENABLE OK"
@@ -170,14 +175,9 @@ for i in $(seq 1 20); do
   case "$ENA" in *"$PKG"*) OK=1; break;; esac
   sleep 3
 done
-[ "$OK" = 1 ] || fail "service did not auto-reenable on the OFF leg (enabled=$ENA)"
+[ "$OK" = 1 ] || fail "service setting did not survive the OFF-leg reboot (enabled=$ENA)"
 adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
-RUN=0
-for i in $(seq 1 20); do
-  if adb shell dumpsys accessibility | grep -q "$PKG"; then RUN=1; break; fi
-  sleep 2
-done
-[ "$RUN" = 1 ] || fail "service enabled but not bound on the OFF leg"
+wait_bound || fail "service enabled but not bound within 90s on the OFF leg"
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" || fail "off-after-reboot screenshot capture"
