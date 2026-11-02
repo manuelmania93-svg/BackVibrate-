@@ -37,13 +37,15 @@ PY
   adb shell input tap $xy || return 1
 }
 
-# Wait until the accessibility service is actually bound (running), not just listed as enabled.
+# Wait until the accessibility service is actually running: its ServiceRecord must
+# carry a live process (app=ProcessRecord), not just exist as a record.
 wait_bound() {
   local i
   for i in $(seq 1 45); do
-    if adb shell dumpsys activity services $PKG | grep -q "BackVibrateAccessibilityService"; then return 0; fi
+    if adb shell dumpsys activity services $PKG | grep -A15 "BackVibrateAccessibilityService" | grep -q "app=ProcessRecord"; then return 0; fi
     sleep 2
   done
+  adb shell dumpsys activity services $PKG | tail -20
   return 1
 }
 
@@ -177,9 +179,11 @@ for i in $(seq 1 20); do
 done
 [ "$OK" = 1 ] || fail "service setting did not survive the OFF-leg reboot (enabled=$ENA)"
 adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
-wait_bound || fail "service enabled but not bound within 90s on the OFF leg"
+wait_bound || fail "service enabled but no live process within 90s on the OFF leg"
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
+adb shell uiautomator dump /sdcard/ui-dump.xml >/dev/null 2>&1 || true
+adb shell "cat /sdcard/ui-dump.xml" 2>/dev/null | grep -q 'text="AKTIV"' || { adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png"; fail "UI does not show AKTIV on the OFF leg after binding (screenshot kept as evidence)"; }
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" || fail "off-after-reboot screenshot capture"
 tap_view "switchVibration" || true
 sleep 1
