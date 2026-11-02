@@ -92,6 +92,17 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Master switch: vibration on/off (persists across reboot) -->
+        <Switch
+            android:id="@+id/switchVibration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Vibration ein/aus"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
         <!-- Card 2: Button Order -->
         <LinearLayout
             android:layout_width="match_parent"

@@ -74,6 +74,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Download previous build APK (install-over test)
+        uses: actions/download-artifact@v4
+        with:
+          name: BackVibrate-debug
+          run-id: 41464991403
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: old-apk
+
       - name: Emulator smoke test (real reboot)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -91,4 +99,5 @@ jobs:
           path: |
             bv-ui-before-grant.png
             bv-ui-auto-on.png
+            bv-ui-vibration-off.png
           if-no-files-found: warn

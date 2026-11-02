@@ -14,12 +14,32 @@ wait_boot() {
   fail "emulator did not finish booting"
 }
 
+OLD=$(ls old-apk/*.apk 2>/dev/null | head -1)
+if [ -n "$OLD" ]; then
+  echo "== Step 0: install previous build, grant, then update over it"
+  adb install "$OLD" || fail "install old build"
+  adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS || fail "grant WRITE_SECURE_SETTINGS on old build"
+  adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+  sleep 2
+fi
 adb install -r "$APK" || fail "install"
+if [ -n "$OLD" ]; then
+  adb shell dumpsys package $PKG | grep -q "android.permission.WRITE_SECURE_SETTINGS: granted=true" || fail "WRITE_SECURE_SETTINGS lost after install-over update"
+  echo "UPDATE OVER OLD BUILD OK: WRITE_SECURE_SETTINGS preserved"
+fi
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
 # launch once so the app leaves the stopped state and can receive BOOT_COMPLETED
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-before-grant.png" 2>/dev/null || true
+# master switch OFF binding: write pref, restart app, capture; then restore ON
+adb shell run-as $PKG sh -c "mkdir -p shared_prefs && printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"false\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+adb shell am force-stop $PKG
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 2
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-vibration-off.png" 2>/dev/null || true
+adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"true\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+adb shell am force-stop $PKG
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"

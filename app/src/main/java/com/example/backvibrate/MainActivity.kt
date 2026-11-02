@@ -87,6 +87,13 @@ class MainActivity : AppCompatActivity() {
             notifyService()
         }
 
+        val swVib = findViewById<Switch>(R.id.switchVibration)
+        swVib.isChecked = prefs.getBoolean("vibration_enabled", true)
+        swVib.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("vibration_enabled", checked).apply()
+            notifyService()
+        }
+
         val sw = findViewById<Switch>(R.id.switchPreview)
         sw.isChecked = prefs.getBoolean("preview_overlay", false)
         sw.setOnCheckedChangeListener { _, checked ->
@@ -164,6 +171,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updateStatus()
         updateProtectionStatus()
+        findViewById<Switch>(R.id.switchVibration).isChecked = prefs.getBoolean("vibration_enabled", true)
         bindAutoSwitch(findViewById(R.id.switchShizuku))
         updateShizukuStatus()
     }
