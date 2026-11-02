@@ -100,4 +100,5 @@ jobs:
             bv-ui-before-grant.png
             bv-ui-auto-on.png
             bv-ui-vibration-off.png
+            bv-ui-off-after-reboot.png
           if-no-files-found: warn

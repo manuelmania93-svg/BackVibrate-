@@ -97,11 +97,18 @@
             android:id="@+id/switchVibration"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
             android:text="Vibration ein/aus"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Schaltet nur die Vibration stumm, bleibt auch nach Neustart aus. Der Dienst im Hintergrund laeuft weiter."
+            android:textColor="#8F96A8"
+            android:textSize="12sp" />
 
         <!-- Card 2: Button Order -->
         <LinearLayout

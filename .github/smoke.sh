@@ -125,3 +125,25 @@ sleep 2
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-auto-on.png" 2>/dev/null || true
 adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
 echo "SMOKE SELF-REENABLE OK"
+
+echo "== Step 5: master OFF must survive a real reboot while the service still auto-reenables"
+adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"false\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || fail "write OFF pref"
+adb shell am force-stop $PKG
+adb shell sync
+sleep 12
+adb reboot
+sleep 10
+wait_boot
+OK=0
+for i in $(seq 1 20); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || fail "service did not auto-reenable on the OFF leg (enabled=$ENA)"
+adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 2
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" 2>/dev/null || true
+adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"true\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+echo "OFF PERSISTED ACROSS REBOOT OK (service auto-reenabled, vibration pref stayed off)"
