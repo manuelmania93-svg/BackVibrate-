@@ -33,12 +33,14 @@ adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-before-grant.png" 2>/dev/null || true
 # master switch OFF binding: write pref, restart app, capture; then restore ON
-adb shell run-as $PKG sh -c "mkdir -p shared_prefs && printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"false\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="false"/></map>' > /tmp/bv-prefs.xml
+adb shell "run-as $PKG sh -c 'mkdir -p shared_prefs && cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
 adb shell am force-stop $PKG
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 2
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-vibration-off.png" 2>/dev/null || true
-adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"true\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="true"/></map>' > /tmp/bv-prefs.xml
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
 adb shell am force-stop $PKG
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
@@ -53,7 +55,8 @@ done
 [ $RUN = 1 ] || fail "service did not bind"
 adb shell dumpsys window windows | grep -q "TYPE_ACCESSIBILITY_OVERLAY\|type=2032" && echo "overlay window present" || echo "note: overlay window not found in dumpsys (not fatal)"
 
-echo "== Step 2: simulate MagicOS: switch the service off, then a real reboot"
+echo "== Step 2: simulate MagicOS without the grant: switch the service off, then a real reboot"
+adb shell pm revoke $PKG android.permission.WRITE_SECURE_SETTINGS
 adb shell settings delete secure enabled_accessibility_services
 adb shell settings put secure accessibility_enabled 0
 sleep 2
@@ -127,7 +130,8 @@ adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
 echo "SMOKE SELF-REENABLE OK"
 
 echo "== Step 5: master OFF must survive a real reboot while the service still auto-reenables"
-adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"false\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || fail "write OFF pref"
+printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="false"/></map>' > /tmp/bv-prefs.xml
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || fail "write OFF pref"
 adb shell am force-stop $PKG
 adb shell sync
 sleep 12
@@ -136,7 +140,8 @@ sleep 10
 wait_boot
 OK=0
 for i in $(seq 1 20); do
-  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '')
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '
+')
   case "$ENA" in *"$PKG"*) OK=1; break;; esac
   sleep 3
 done
@@ -145,5 +150,6 @@ adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibrati
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 2
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" 2>/dev/null || true
-adb shell run-as $PKG sh -c "printf '%s' '<?xml version=\"1.0\" encoding=\"utf-8\"?><map><boolean name=\"vibration_enabled\" value=\"true\"/></map>' > shared_prefs/back_vibrate_prefs.xml" || true
+printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="true"/></map>' > /tmp/bv-prefs.xml
+adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
 echo "OFF PERSISTED ACROSS REBOOT OK (service auto-reenabled, vibration pref stayed off)"
