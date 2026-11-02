@@ -14,6 +14,29 @@ wait_boot() {
   fail "emulator did not finish booting"
 }
 
+# Tap a view by resource-id suffix using the uiautomator dump (real UI interaction).
+tap_view() {
+  local rid="$1" xy
+  adb shell uiautomator dump /sdcard/ui-dump.xml >/dev/null 2>&1 || return 1
+  adb shell "cat /sdcard/ui-dump.xml" > /tmp/ui-dump.xml || return 1
+  xy=$(python3 - "$rid" <<'PY'
+import sys, re
+rid = sys.argv[1]
+s = open('/tmp/ui-dump.xml', encoding='utf-8', errors='replace').read()
+for m in re.finditer(r'<node[^>]*>', s):
+    tag = m.group(0)
+    if ('id/' + rid + '"') in tag:
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', tag)
+        if b:
+            x1, y1, x2, y2 = map(int, b.groups())
+            print((x1 + x2) // 2, (y1 + y2) // 2)
+            sys.exit(0)
+sys.exit(1)
+PY
+) || return 1
+  adb shell input tap $xy || return 1
+}
+
 OLD=$(ls old-apk/*.apk 2>/dev/null | head -1)
 if [ -n "$OLD" ]; then
   echo "== Step 0: install previous build, grant, then update over it"
@@ -32,16 +55,16 @@ adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant not
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
 adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-before-grant.png" 2>/dev/null || true
-# master switch OFF binding: write pref, restart app, capture; then restore ON
-printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="false"/></map>' > /tmp/bv-prefs.xml
-adb shell "run-as $PKG sh -c 'mkdir -p shared_prefs && cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
-adb shell am force-stop $PKG
+# master switch OFF binding via real UI toggle, then verify the pref on disk; restore ON the same way
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
-sleep 2
-adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-vibration-off.png" 2>/dev/null || true
-printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="true"/></map>' > /tmp/bv-prefs.xml
-adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
-adb shell am force-stop $PKG
+sleep 3
+tap_view "switchVibration" || fail "master switch not found in UI for OFF toggle"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="false"' || fail "UI toggle did not write OFF pref"
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-vibration-off.png" || fail "OFF screenshot capture"
+tap_view "switchVibration" || fail "master switch not found in UI for ON restore"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="true"' || fail "UI toggle did not restore ON pref"
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"
@@ -129,10 +152,12 @@ adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-auto-on.png" 2>/dev
 adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
 echo "SMOKE SELF-REENABLE OK"
 
-echo "== Step 5: master OFF must survive a real reboot while the service still auto-reenables"
-printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="false"/></map>' > /tmp/bv-prefs.xml
-adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || fail "write OFF pref"
-adb shell am force-stop $PKG
+echo "== Step 5: master OFF via UI must survive a real reboot while the service still auto-reenables"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 3
+tap_view "switchVibration" || fail "master switch not found in UI for OFF leg"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="false"' || fail "UI toggle did not write OFF pref"
 adb shell sync
 sleep 12
 adb reboot
@@ -148,8 +173,9 @@ done
 [ "$OK" = 1 ] || fail "service did not auto-reenable on the OFF leg (enabled=$ENA)"
 adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
-sleep 2
-adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" 2>/dev/null || true
-printf '%s' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="vibration_enabled" value="true"/></map>' > /tmp/bv-prefs.xml
-adb shell "run-as $PKG sh -c 'cat > shared_prefs/back_vibrate_prefs.xml'" < /tmp/bv-prefs.xml || true
+sleep 3
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" || fail "off-after-reboot screenshot capture"
+tap_view "switchVibration" || true
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="true"' || true
 echo "OFF PERSISTED ACROSS REBOOT OK (service auto-reenabled, vibration pref stayed off)"
