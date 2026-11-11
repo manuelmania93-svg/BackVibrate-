@@ -14,11 +14,69 @@ wait_boot() {
   fail "emulator did not finish booting"
 }
 
+# Tap a view by resource-id suffix using the uiautomator dump (real UI interaction).
+tap_view() {
+  local rid="$1" xy
+  adb shell uiautomator dump /sdcard/ui-dump.xml >/dev/null 2>&1 || return 1
+  adb shell "cat /sdcard/ui-dump.xml" > /tmp/ui-dump.xml || return 1
+  xy=$(python3 - "$rid" <<'PY'
+import sys, re
+rid = sys.argv[1]
+s = open('/tmp/ui-dump.xml', encoding='utf-8', errors='replace').read()
+for m in re.finditer(r'<node[^>]*>', s):
+    tag = m.group(0)
+    if ('id/' + rid + '"') in tag:
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', tag)
+        if b:
+            x1, y1, x2, y2 = map(int, b.groups())
+            print((x1 + x2) // 2, (y1 + y2) // 2)
+            sys.exit(0)
+sys.exit(1)
+PY
+) || return 1
+  adb shell input tap $xy || return 1
+}
+
+# Wait until the accessibility service is actually running: its ServiceRecord must
+# carry a live process (app=ProcessRecord), not just exist as a record.
+wait_bound() {
+  local i
+  for i in $(seq 1 45); do
+    if adb shell dumpsys activity services $PKG | grep -A15 "BackVibrateAccessibilityService" | grep -q "app=ProcessRecord"; then return 0; fi
+    sleep 2
+  done
+  adb shell dumpsys activity services $PKG | tail -20
+  return 1
+}
+
+OLD=$(ls old-apk/*.apk 2>/dev/null | head -1)
+if [ -n "$OLD" ]; then
+  echo "== Step 0: install previous build, grant, then update over it"
+  adb install "$OLD" || fail "install old build"
+  adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS || fail "grant WRITE_SECURE_SETTINGS on old build"
+  adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+  sleep 2
+fi
 adb install -r "$APK" || fail "install"
+if [ -n "$OLD" ]; then
+  adb shell dumpsys package $PKG | grep -q "android.permission.WRITE_SECURE_SETTINGS: granted=true" || fail "WRITE_SECURE_SETTINGS lost after install-over update"
+  echo "UPDATE OVER OLD BUILD OK: WRITE_SECURE_SETTINGS preserved"
+fi
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || fail "grant notifications"
 # launch once so the app leaves the stopped state and can receive BOOT_COMPLETED
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 3
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-before-grant.png" 2>/dev/null || true
+# master switch OFF binding via real UI toggle, then verify the pref on disk; restore ON the same way
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 3
+tap_view "switchVibration" || fail "master switch not found in UI for OFF toggle"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="false"' || fail "UI toggle did not write OFF pref"
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-vibration-off.png" || fail "OFF screenshot capture"
+tap_view "switchVibration" || fail "master switch not found in UI for ON restore"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="true"' || fail "UI toggle did not restore ON pref"
 adb shell cmd notification allow_listener >/dev/null 2>&1 || true
 
 echo "== Step 1: enable the service and check it binds and shows the overlay"
@@ -32,11 +90,14 @@ done
 [ $RUN = 1 ] || fail "service did not bind"
 adb shell dumpsys window windows | grep -q "TYPE_ACCESSIBILITY_OVERLAY\|type=2032" && echo "overlay window present" || echo "note: overlay window not found in dumpsys (not fatal)"
 
-echo "== Step 2: simulate MagicOS: switch the service off, then a real reboot"
+echo "== Step 2: simulate MagicOS without the grant: switch the service off, then a real reboot"
+adb shell pm revoke $PKG android.permission.WRITE_SECURE_SETTINGS
 adb shell settings delete secure enabled_accessibility_services
 adb shell settings put secure accessibility_enabled 0
 sleep 2
 adb logcat -c
+adb shell sync
+sleep 12
 adb reboot
 sleep 10
 wait_boot
@@ -61,6 +122,8 @@ adb shell settings put secure enabled_accessibility_services "$SVC"
 adb shell settings put secure accessibility_enabled 1
 sleep 3
 adb logcat -c
+adb shell sync
+sleep 12
 adb reboot
 sleep 10
 wait_boot
@@ -70,3 +133,111 @@ adb logcat -d -s BackVibrate | tail -20
 NOTI2=$(adb shell dumpsys notification --noredact | grep -c "BackVibrate läuft nicht")
 [ "$NOTI2" -eq 0 ] || fail "false 'läuft nicht' warning although service runs"
 echo "SMOKE OK"
+
+echo "== Step 4: one-time WRITE_SECURE_SETTINGS grant, then a MagicOS-style kill + reboot must self-heal"
+adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS || fail "grant WRITE_SECURE_SETTINGS"
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb shell sync
+sleep 12
+adb reboot
+sleep 10
+wait_boot
+OK=0
+ENA=""
+for i in $(seq 1 20); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || fail "self re-enable did not restore the service after reboot (enabled=$ENA)"
+wait_bound || fail "service listed as enabled but not bound after self re-enable"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 3
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-auto-on.png" 2>/dev/null || true
+adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -3
+echo "SMOKE SELF-REENABLE OK"
+
+echo "== Step 5: master OFF via UI must survive a real reboot while the service still auto-reenables"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 3
+tap_view "switchVibration" || fail "master switch not found in UI for OFF leg"
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="false"' || fail "UI toggle did not write OFF pref"
+adb shell sync
+sleep 12
+adb reboot
+sleep 10
+wait_boot
+OK=0
+for i in $(seq 1 20); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '
+')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || fail "service setting did not survive the OFF-leg reboot (enabled=$ENA)"
+adb shell run-as $PKG cat shared_prefs/back_vibrate_prefs.xml | grep -q 'vibration_enabled" value="false"' || fail "master OFF pref lost across reboot"
+wait_bound || fail "service enabled but no live process within 90s on the OFF leg"
+adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 3
+adb shell uiautomator dump /sdcard/ui-dump.xml >/dev/null 2>&1 || true
+adb shell "cat /sdcard/ui-dump.xml" 2>/dev/null | grep -q 'text="AKTIV"' || { adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png"; fail "UI does not show AKTIV on the OFF leg after binding (screenshot kept as evidence)"; }
+adb exec-out screencap -p > "${GITHUB_WORKSPACE:-/tmp}/bv-ui-off-after-reboot.png" || fail "off-after-reboot screenshot capture"
+tap_view "switchVibration" || true
+sleep 1
+adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="true"' || true
+echo "OFF PERSISTED ACROSS REBOOT OK (service auto-reenabled, vibration pref stayed off)"
+
+echo "== Step 6: MagicOS flips the service off AFTER our boot re-enable - bounded retry must heal it"
+# Grant is still present from step 4. Kill the service entry, reboot, and the moment the
+# self re-enable restores it, delete it again (MagicOS-style late cleanup). The post-boot
+# verification check must then re-enable it within its bounded attempts.
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb shell sync
+sleep 12
+adb reboot
+sleep 10
+wait_boot
+FLIPPED=0
+for i in $(seq 1 45); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*)
+    adb shell settings delete secure enabled_accessibility_services
+    adb shell settings put secure accessibility_enabled 0
+    FLIPPED=1
+    echo "self re-enable wrote the setting; flipped it off again to simulate late MagicOS cleanup"
+    break;;
+  esac
+  sleep 2
+done
+[ "$FLIPPED" = 1 ] || fail "self re-enable did not write the setting at boot in step 6 (enabled=$ENA)"
+OK=0
+for i in $(seq 1 60); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || { adb logcat -d -s BackVibrate | tail -30; fail "bounded retry did not restore the service after the simulated flip"; }
+adb logcat -d -s BackVibrate | grep -i "off again, re-enabling" | tail -2 || echo "note: flip may have raced the boot write; retry log line not required"
+wait_bound || fail "service listed as enabled but not bound after the retry"
+echo "BOUNDED RETRY AFTER FLIP OK"
+
+echo "== Step 7: install-over update (MY_PACKAGE_REPLACED) re-enables the service"
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb install -r "$APK" || fail "reinstall for MY_PACKAGE_REPLACED leg"
+OK=0
+for i in $(seq 1 30); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 2
+done
+[ "$OK" = 1 ] || { adb logcat -d -s BackVibrate | tail -30; fail "MY_PACKAGE_REPLACED did not self re-enable the service"; }
+adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -2
+wait_bound || fail "service listed as enabled but not bound after update-over"
+echo "MY_PACKAGE_REPLACED SELF-REENABLE OK"

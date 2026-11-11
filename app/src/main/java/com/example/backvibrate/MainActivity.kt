@@ -87,6 +87,13 @@ class MainActivity : AppCompatActivity() {
             notifyService()
         }
 
+        val swVib = findViewById<Switch>(R.id.switchVibration)
+        swVib.isChecked = prefs.getBoolean("vibration_enabled", true)
+        swVib.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("vibration_enabled", checked).apply()
+            notifyService()
+        }
+
         val sw = findViewById<Switch>(R.id.switchPreview)
         sw.isChecked = prefs.getBoolean("preview_overlay", false)
         sw.setOnCheckedChangeListener { _, checked ->
@@ -94,13 +101,79 @@ class MainActivity : AppCompatActivity() {
             notifyService()
         }
 
+        val swShizuku = findViewById<Switch>(R.id.switchShizuku)
+        bindAutoSwitch(swShizuku)
+        swShizuku.setOnCheckedChangeListener { _, checked ->
+            if (SelfReenable.hasSecureSettings(this)) {
+                prefs.edit().putBoolean(SelfReenable.PREF_AUTO, checked).apply()
+            } else {
+                prefs.edit().putBoolean(SelfReenable.PREF_SHIZUKU_OPT_IN, checked).apply()
+            }
+            updateShizukuStatus()
+        }
+        findViewById<Button>(R.id.btnShizukuSetup).setOnClickListener { setupShizuku() }
+
         requestNotificationPermissionIfNeeded()
+    }
+
+    private fun bindAutoSwitch(sw: Switch) {
+        sw.isChecked = if (SelfReenable.hasSecureSettings(this)) {
+            prefs.getBoolean(SelfReenable.PREF_AUTO, true)
+        } else {
+            prefs.getBoolean(SelfReenable.PREF_SHIZUKU_OPT_IN, false)
+        }
+    }
+
+    private fun updateShizukuStatus() {
+        val tv = findViewById<TextView>(R.id.tvShizukuStatus)
+        val ready = SelfReenable.hasSecureSettings(this)
+        val autoOn = ready && prefs.getBoolean(SelfReenable.PREF_AUTO, true)
+        tv.text = when {
+            autoOn -> "✓ Automatik aktiv: nach einem Neustart schaltet sich der Dienst von selbst wieder ein."
+            ready -> "Berechtigung vorhanden, aber die Automatik ist oben ausgeschaltet."
+            !SelfReenable.shizukuRunning() -> "Keine Berechtigung: einmalig per PC (adb) erteilen oder per Shizuku freigeben. Ohne sie kommt nach dem Neustart nur die Benachrichtigung."
+            !SelfReenable.shizukuPermitted() -> "Shizuku läuft. Tippe auf den Button und erlaube den Zugriff."
+            else -> "Shizuku erlaubt. Tippe auf den Button für die einmalige Freigabe."
+        }
+        tv.setTextColor(if (autoOn) 0xFF4CAF50.toInt() else 0xFFFFB300.toInt())
+    }
+
+    private fun setupShizuku() {
+        if (!SelfReenable.shizukuRunning()) {
+            updateShizukuStatus()
+            return
+        }
+        if (!SelfReenable.shizukuPermitted()) {
+            try {
+                rikka.shizuku.Shizuku.addRequestPermissionResultListener(
+                    object : rikka.shizuku.Shizuku.OnRequestPermissionResultListener {
+                        override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
+                            rikka.shizuku.Shizuku.removeRequestPermissionResultListener(this)
+                            runOnUiThread { updateShizukuStatus() }
+                        }
+                    }
+                )
+                rikka.shizuku.Shizuku.requestPermission(1001)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Shizuku permission request failed", t)
+            }
+            return
+        }
+        SelfReenable.grantViaShizuku(this) { ok ->
+            runOnUiThread {
+                Log.d(TAG, "Shizuku one-time grant result: $ok")
+                updateShizukuStatus()
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         updateStatus()
         updateProtectionStatus()
+        findViewById<Switch>(R.id.switchVibration).isChecked = prefs.getBoolean("vibration_enabled", true)
+        bindAutoSwitch(findViewById(R.id.switchShizuku))
+        updateShizukuStatus()
     }
 
     private fun notifyService() {
@@ -159,6 +232,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvNotifStatus).apply {
             text = if (notifOk) "✓ Benachrichtigungen: erlaubt" else "⚠ Benachrichtigungen: blockiert (Neustart-Warnung nötig)"
             setTextColor(if (notifOk) okColor else warnColor)
+        }
+
+        val adbOk = SelfReenable.hasSecureSettings(this)
+        findViewById<TextView>(R.id.tvAdbStatus).apply {
+            text = if (adbOk) "✓ ADB-Schutz: PC-Freigabe vorhanden (Selbst-Einschalten möglich)"
+                else "⚠ ADB-Schutz: Freigabe fehlt - nach Neustart nur Benachrichtigung"
+            setTextColor(if (adbOk) okColor else warnColor)
         }
 
         val missing = mutableListOf<String>()
