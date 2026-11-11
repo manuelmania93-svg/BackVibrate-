@@ -189,3 +189,55 @@ tap_view "switchVibration" || true
 sleep 1
 adb shell "run-as $PKG cat shared_prefs/back_vibrate_prefs.xml" | grep -q 'vibration_enabled" value="true"' || true
 echo "OFF PERSISTED ACROSS REBOOT OK (service auto-reenabled, vibration pref stayed off)"
+
+echo "== Step 6: MagicOS flips the service off AFTER our boot re-enable - bounded retry must heal it"
+# Grant is still present from step 4. Kill the service entry, reboot, and the moment the
+# self re-enable restores it, delete it again (MagicOS-style late cleanup). The post-boot
+# verification check must then re-enable it within its bounded attempts.
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb shell sync
+sleep 12
+adb reboot
+sleep 10
+wait_boot
+FLIPPED=0
+for i in $(seq 1 45); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*)
+    adb shell settings delete secure enabled_accessibility_services
+    adb shell settings put secure accessibility_enabled 0
+    FLIPPED=1
+    echo "self re-enable wrote the setting; flipped it off again to simulate late MagicOS cleanup"
+    break;;
+  esac
+  sleep 2
+done
+[ "$FLIPPED" = 1 ] || fail "self re-enable did not write the setting at boot in step 6 (enabled=$ENA)"
+OK=0
+for i in $(seq 1 60); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 3
+done
+[ "$OK" = 1 ] || { adb logcat -d -s BackVibrate | tail -30; fail "bounded retry did not restore the service after the simulated flip"; }
+adb logcat -d -s BackVibrate | grep -i "off again, re-enabling" | tail -2 || echo "note: flip may have raced the boot write; retry log line not required"
+wait_bound || fail "service listed as enabled but not bound after the retry"
+echo "BOUNDED RETRY AFTER FLIP OK"
+
+echo "== Step 7: install-over update (MY_PACKAGE_REPLACED) re-enables the service"
+adb shell settings delete secure enabled_accessibility_services
+adb shell settings put secure accessibility_enabled 0
+adb logcat -c
+adb install -r "$APK" || fail "reinstall for MY_PACKAGE_REPLACED leg"
+OK=0
+for i in $(seq 1 30); do
+  ENA=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')
+  case "$ENA" in *"$PKG"*) OK=1; break;; esac
+  sleep 2
+done
+[ "$OK" = 1 ] || { adb logcat -d -s BackVibrate | tail -30; fail "MY_PACKAGE_REPLACED did not self re-enable the service"; }
+adb logcat -d -s BackVibrate | grep -i "self re-enable" | tail -2
+wait_bound || fail "service listed as enabled but not bound after update-over"
+echo "MY_PACKAGE_REPLACED SELF-REENABLE OK"

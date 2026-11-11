@@ -118,8 +118,17 @@ adb shell pm grant com.example.backvibrate android.permission.WRITE_SECURE_SETTI
 Das war's. Ab jetzt gilt:
 - Nach jedem Neustart schaltet sich der Dienst innerhalb von wenigen
   Sekunden von selbst wieder ein (kein Shizuku nötig).
+- Die App prüft danach mehrfach nach (max. 3 Versuche über ca. 3 Minuten):
+  Schaltet MagicOS den Dienst erst einige Sekunden nach dem Neustart wieder
+  aus, wird er erneut aktiviert, bevor die Warn-Benachrichtigung kommt.
+- Dieselbe Prüfung läuft auch nach einem Update der App (installiert über
+  die bestehende Installation, ohne Deinstallieren).
 - Der Schalter "Selbst-Einschalten aktivieren" in der App steuert die
   Automatik (standardmäßig an).
+- Die Status-Karte in der App zeigt unter "ADB-Schutz", ob die
+  PC-Freigabe noch vorhanden ist. Sie geht verloren, wenn die App
+  deinstalliert und neu installiert wird - deshalb immer nur darüber
+  installieren, nie deinstallieren.
 - Ohne die Berechtigung bekommst du weiterhin nur die Benachrichtigung
   zum manuellen Einschalten.
 

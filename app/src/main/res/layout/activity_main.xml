@@ -362,8 +362,17 @@
                 android:id="@+id/tvNotifStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="4dp"
                 android:text="Benachrichtigungen: ..."
+                android:textColor="#8F96A8"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvAdbStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="ADB-Schutz: ..."
                 android:textColor="#8F96A8"
                 android:textSize="13sp" />
 

@@ -16,10 +16,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 /**
- * Runs after every device boot.
+ * Runs after every device boot and after the app is updated in place.
  *
  * - Service missing from the enabled list (MagicOS switches sideloaded accessibility services off
- *   after a restart): post a one-tap notification that opens the accessibility settings.
+ *   after a restart): try the self re-enable first, then verify repeatedly. MagicOS can switch the
+ *   service back off seconds after we re-enable it, so one write is not enough - we re-check a few
+ *   times before giving up and posting the one-tap rescue notification.
  * - Service still listed as enabled: wait a bit, then check that it is really running. If it is not,
  *   post a notification that points to the app settings.
  */
@@ -30,7 +32,11 @@ class BootReceiver : BroadcastReceiver() {
         const val NOTIFICATION_ID = 1002
         private const val TAG = "BackVibrate"
         private const val CHANNEL_ID = "backvibrate_recovery"
-        private const val CHECK_DELAY_MS = 30_000L
+        private const val FIRST_CHECK_DELAY_MS = 30_000L
+        private const val RETRY_DELAY_MS = 60_000L
+        /** Bounded recovery: at most this many re-enable/verify rounds before notifying. */
+        private const val MAX_ATTEMPTS = 3
+        private const val EXTRA_ATTEMPT = "attempt"
 
         fun isServiceEnabled(context: Context): Boolean {
             val enabled = Settings.Secure.getString(
@@ -43,19 +49,24 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED -> onBoot(context, goAsync())
-            ACTION_CHECK_RUNNING -> onCheckRunning(context)
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED -> onBoot(context, goAsync())
+            ACTION_CHECK_RUNNING -> onCheckRunning(context, intent.getIntExtra(EXTRA_ATTEMPT, 0))
         }
     }
 
     private fun onBoot(context: Context, pending: PendingResult? = null) {
         if (!isServiceEnabled(context) && SelfReenable.autoEnabled(context)) {
             if (SelfReenable.reenable(context)) {
-                Log.d(TAG, "Boot: service switched back on by self re-enable")
-                pending?.finish()
-                return
+                Log.d(TAG, "Boot: service switched back on by self re-enable, verifying in ${FIRST_CHECK_DELAY_MS / 1000}s")
+            } else {
+                Log.w(TAG, "Boot: WRITE_SECURE_SETTINGS present but re-enable failed, retrying via checks")
             }
-            Log.w(TAG, "Boot: WRITE_SECURE_SETTINGS present but re-enable failed, using notification")
+            // Whether the write succeeded or failed: verify afterwards. If MagicOS flips the
+            // service off again, the checks below re-enable it (bounded) before notifying.
+            scheduleCheck(context, 0)
+            pending?.finish()
+            return
         }
         if (!isServiceEnabled(context) && SelfReenable.shizukuOptedIn(context)
             && SelfReenable.shizukuRunning() && SelfReenable.shizukuPermitted()
@@ -63,7 +74,11 @@ class BootReceiver : BroadcastReceiver() {
             SelfReenable.grantViaShizuku(context) { granted ->
                 val ok = granted && SelfReenable.reenable(context)
                 Log.d(TAG, "Boot: Shizuku grant=$granted, re-enabled=$ok")
-                if (!ok) notifyOff(context)
+                if (ok) {
+                    scheduleCheck(context, 0)
+                } else {
+                    notifyOff(context)
+                }
                 pending?.finish()
             }
             return
@@ -73,6 +88,19 @@ class BootReceiver : BroadcastReceiver() {
         } finally {
             pending?.finish()
         }
+    }
+
+    private fun scheduleCheck(context: Context, attempt: Int) {
+        val alarm = context.getSystemService(AlarmManager::class.java) ?: return
+        val check = PendingIntent.getBroadcast(
+            context, 1,
+            Intent(context, BootReceiver::class.java)
+                .setAction(ACTION_CHECK_RUNNING)
+                .putExtra(EXTRA_ATTEMPT, attempt),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val delay = if (attempt == 0) FIRST_CHECK_DELAY_MS else RETRY_DELAY_MS
+        alarm.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + delay, check)
     }
 
     private fun notifyOff(context: Context) {
@@ -87,34 +115,38 @@ class BootReceiver : BroadcastReceiver() {
     private fun bootCheck(context: Context) {
         if (!isServiceEnabled(context)) {
             Log.w(TAG, "Boot: accessibility service is switched off, posting recovery notification")
-            postNotification(
-                context,
-                "BackVibrate ist aus - tippen zum Einschalten",
-                "Nach dem Neustart wurde die Haptik ausgeschaltet. Tippen, dann BackVibrate in den Bedienungshilfen einschalten.",
-                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            )
+            notifyOff(context)
             return
         }
-        Log.d(TAG, "Boot: service is enabled, checking again in ${CHECK_DELAY_MS / 1000}s that it is running")
-        val alarm = context.getSystemService(AlarmManager::class.java) ?: return
-        val check = PendingIntent.getBroadcast(
-            context, 1,
-            Intent(context, BootReceiver::class.java).setAction(ACTION_CHECK_RUNNING),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarm.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + CHECK_DELAY_MS, check)
+        Log.d(TAG, "Boot: service is enabled, checking again in ${FIRST_CHECK_DELAY_MS / 1000}s that it is running")
+        scheduleCheck(context, 0)
     }
 
-    private fun onCheckRunning(context: Context) {
+    private fun onCheckRunning(context: Context, attempt: Int) {
         if (BackVibrateAccessibilityService.instance != null) {
-            Log.d(TAG, "Check: service is running")
+            Log.d(TAG, "Check (attempt $attempt): service is running")
             return
         }
         if (!isServiceEnabled(context)) {
-            bootCheck(context)
+            if (SelfReenable.autoEnabled(context) && attempt < MAX_ATTEMPTS) {
+                // MagicOS switched the service back off after our earlier re-enable: retry, bounded.
+                Log.w(TAG, "Check (attempt $attempt): service off again, re-enabling")
+                SelfReenable.reenable(context)
+                scheduleCheck(context, attempt + 1)
+                return
+            }
+            Log.w(TAG, "Check (attempt $attempt): service still off, posting recovery notification")
+            notifyOff(context)
             return
         }
-        Log.w(TAG, "Check: service is enabled but not running, posting notification")
+        if (attempt < MAX_ATTEMPTS) {
+            // Enabled but not bound yet - after a boot the system can take a while to bind the
+            // service. Re-check instead of warning early.
+            Log.d(TAG, "Check (attempt $attempt): enabled but not running yet, re-checking")
+            scheduleCheck(context, attempt + 1)
+            return
+        }
+        Log.w(TAG, "Check (attempt $attempt): service is enabled but not running, posting notification")
         postNotification(
             context,
             "BackVibrate läuft nicht",

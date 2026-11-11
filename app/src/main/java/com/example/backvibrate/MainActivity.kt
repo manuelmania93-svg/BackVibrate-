@@ -234,6 +234,13 @@ class MainActivity : AppCompatActivity() {
             setTextColor(if (notifOk) okColor else warnColor)
         }
 
+        val adbOk = SelfReenable.hasSecureSettings(this)
+        findViewById<TextView>(R.id.tvAdbStatus).apply {
+            text = if (adbOk) "✓ ADB-Schutz: PC-Freigabe vorhanden (Selbst-Einschalten möglich)"
+                else "⚠ ADB-Schutz: Freigabe fehlt - nach Neustart nur Benachrichtigung"
+            setTextColor(if (adbOk) okColor else warnColor)
+        }
+
         val missing = mutableListOf<String>()
         if (!batteryOk) missing.add("Akku")
         if (!autostartOk) missing.add("App-Start")
